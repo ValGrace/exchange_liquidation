@@ -1,27 +1,18 @@
-import asyncio
-import json
-import os
-from websockets import connect
 
-websocket_uri = "wss://fstream.binance.com/ws/!forceOrder@arr"
+binance_liq_url = "wss://fstream.binance.com/ws/!forceOrder@arr"
 filename = "binance.csv"
 
-if not os.path.isfile(filename):
-    with open(filename, "w") as f:
-        f.write(",".join([
-            "symbol", "side", "order_type", "time_in_force",
-            "original_quantity", "price", "average_price",
-            "order_status", "order_last_filled_quantity", "order_filled_accumulated_quantity", "order_trade_time"
-        ]) + "\n")
 
-async def binance_liquidations(uri, filename):
-    async for websocket in connect(uri):
-        try:
-            while True:
-                msg = await websocket.recv()
-                print(msg)
-        except Exception as e:
-            print(e)
-            continue
-
-asyncio.run(binance_liquidations(websocket_uri, filename))
+def parse_binance_liquidations(message_data):
+    if 'data' not in message_data or 'o' not in message_data['data']:
+        return "no data"
+    
+    order_data = message_data['data']['o']
+    return {
+        "exchange": "Binance",
+        "symbol": order_data.get('s'),
+        "side": order_data.get('S'),
+        "price": float(order_data.get('p', 0)),
+        "quantity": float(order_data.get('q', 0)),
+        "timestamp": order_data.get('T')
+    }
