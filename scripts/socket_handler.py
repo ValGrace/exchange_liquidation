@@ -20,6 +20,11 @@ async def websocket_handler(exchange_name, url, subscribe_payload, message_parse
                 async for message in ws:
                    data = json.loads(message)
                    parsed_event = message_parser(data)
+
+                   if parsed_event:
+                       print(
+                           f"💥 [{exchange_name} LIQUIDATION] {parsed_event['symbol']} | {parsed_event['side']} | ${parsed_event['price']} | QTY: {parsed_event['quantity']}"
+                       )
         
         except websockets.ConnectionClosed:
             logging.warning(f"{exchange_name} disconnected. Reconnecting in 5s...")
