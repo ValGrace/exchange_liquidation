@@ -1,5 +1,5 @@
 
-binance_liq_url = "wss://fstream.binance.com/ws/!forceOrder@arr"
+BINANCE_WS_URL = "wss://fstream.binance.com/ws/!forceOrder@arr"
 filename = "binance.csv"
 
 

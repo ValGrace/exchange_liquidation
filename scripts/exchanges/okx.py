@@ -1,4 +1,4 @@
-okx_url = "wss://ws.okx.com:8443/ws/v5/public" # Verify this URL with OKX API documentation if connection issues (e.g., 404 errors) occur.
+OKX_WS_URL = "wss://ws.okx.com:8443/ws/v5/public" # Verify this URL with OKX API documentation if connection issues (e.g., 404 errors) occur.
 
 okx_subscribe_payload = {
     "op": "subscribe",

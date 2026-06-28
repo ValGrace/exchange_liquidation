@@ -1,4 +1,4 @@
-bybit_url = "wss://stream.bybit.com/v5/public/linear"
+BYBIT_WS_URL = "wss://stream.bybit.com/v5/public/linear"
 
 bybit_subscribe_payload = {
     "op": "subscribe",
