@@ -20,9 +20,9 @@ def parse_okx_message(data):
             for detail in item['details']:
                 return {
                     "exchange": "okx",
-                    "symbol": item['instId'],
-                    "side": detail['side'],
-                    "price": float(detail['bkPx']), # Bankruptcy price
-                    "quantity": float(detail['sz']),
-                    "timestamp": detail['ts']
+                    "symbol": item.get('instId'),
+                    "side": detail.get('side'),
+                    "price": float(detail.get('bkPx')), # Bankruptcy price
+                    "quantity": float(detail.get('sz')),
+                    "timestamp": detail.get('ts')
                 }
