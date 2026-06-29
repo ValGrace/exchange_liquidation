@@ -1,0 +1,9 @@
+# Virtual environment
+exchange_venv/
+
+# Cache
+__pycache__/
+
+# Extra
+.vscode
+commands.db

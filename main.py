@@ -1,10 +1,10 @@
 import asyncio
 from socket_handler import websocket_handler
-from scripts.exchanges.binance import parse_binance_liquidations, BINANCE_WS_URL
-from scripts.exchanges.bybit import BYBIT_WS_URL, parse_bybit_message, bybit_subscribe_payload
-from scripts.exchanges.okx import parse_okx_message, OKX_WS_URL, okx_subscribe_payload
-from scripts.exchanges.kraken import parse_kraken_message, KRAKEN_WS_URL, kraken_subscribe_payload
-from scripts.exchanges.coin_base import parse_coinbase_message, COINBASE_WS_URL, coinbase_subscribe_payload
+from exchanges.binance import parse_binance_liquidations, BINANCE_WS_URL
+from exchanges.bybit import BYBIT_WS_URL, parse_bybit_message, bybit_subscribe_payload
+from exchanges.okx import parse_okx_message, OKX_WS_URL, okx_subscribe_payload
+from exchanges.kraken import parse_kraken_message, KRAKEN_WS_URL, kraken_subscribe_payload
+from exchanges.coin_base import parse_coinbase_message, COINBASE_WS_URL, coinbase_subscribe_payload
 from kafka import KafkaProducer
 import logging
 
