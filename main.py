@@ -5,20 +5,20 @@ from exchanges.bybit import BYBIT_WS_URL, parse_bybit_message, bybit_subscribe_p
 from exchanges.okx import parse_okx_message, OKX_WS_URL, okx_subscribe_payload
 from exchanges.kraken import parse_kraken_message, KRAKEN_WS_URL, kraken_subscribe_payload
 from exchanges.coin_base import parse_coinbase_message, COINBASE_WS_URL, coinbase_subscribe_payload
-from kafka import KafkaProducer
+from aiokafka import AIOKafkaProducer
 import logging
 
-KAFKA_TOPIC = 'crypto_exchange_topic'
+KAFKA_TOPIC = 'crypto_exchange_trades'
 
 async def main():
+    
     logging.info("Initializing high-throughput Kafka producer...")
 
-    k_producer = KafkaProducer(
+    k_producer = AIOKafkaProducer(
         bootstrap_servers = 'broker:9092',
         api_version=(2, 3, 1),
         enable_idempotence=True
     )
-
     await k_producer.start()
     logging.info("✅ Kafka producer started successfully.")
 

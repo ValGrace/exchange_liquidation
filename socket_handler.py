@@ -7,6 +7,7 @@ import logging
 # Configure basic logging
 logging.basicConfig(level=logging.INFO)
 
+
 async def websocket_handler(exchange_name, url, subscribe_payload, message_parser, producer, topic):
     """Base handler for connecting, subscribing and parsing streams."""
     retry_delay = 5
@@ -33,7 +34,9 @@ async def websocket_handler(exchange_name, url, subscribe_payload, message_parse
 
                             key_bytes = event["symbol"].encode("utf-8")
 
-                            await producer.send(topic=topic, value=payload_bytes, key=key_bytes)
+                            producer.send(topic=topic, value=payload_bytes, key=key_bytes)
+
+                    
         
         except websockets.ConnectionClosed:
             logging.warning(f"{exchange_name} disconnected. Reconnecting in 5s...")
