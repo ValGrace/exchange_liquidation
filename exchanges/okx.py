@@ -14,15 +14,19 @@ def parse_okx_message(data):
 
     channel = data['arg']['channel']
 
+    parsed_events = []
+
     if channel == "liquidation-orders":
         for item in data['data']:
             # OKX returns nested arrays containing multiple liquidations
             for detail in item['details']:
-                return {
+                parsed_events.append({
                     "exchange": "okx",
                     "symbol": item.get('instId'),
                     "side": detail.get('side'),
                     "price": float(detail.get('bkPx')), # Bankruptcy price
                     "quantity": float(detail.get('sz')),
                     "timestamp": detail.get('ts')
-                }
+                })
+        return parsed_events
+    return None

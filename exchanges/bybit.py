@@ -14,15 +14,18 @@ def parse_bybit_message(data):
     topic = data['topic']
     payload = data['data']
 
+    parsed_events = []
+
     if topic.startswith("liquidation"):
-        return {
+        parsed_events.append({
             "exchange": "bybit",
             "symbol": payload['symbol'],
             "side": payload['side'],
             "price": float(payload['price']),
             "quantity": float(payload['size']),
             "timestamp": payload['updatedTime']
-        }
+        })
+        return parsed_events
     elif topic.startswith("orderbook"):
         # Handle orderbook delta logic here
         pass

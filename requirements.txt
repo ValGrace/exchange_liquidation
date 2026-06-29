@@ -1,2 +1,6 @@
+aiokafka==0.14.0
+async-timeout==5.0.1
 kafka-python==3.0.7
+packaging==26.2
+typing_extensions==4.15.0
 websockets==16.0
