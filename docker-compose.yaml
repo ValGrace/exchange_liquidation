@@ -2,7 +2,7 @@ name: cryptocurrency_exchange_liquidation
 services:
   broker:
     image: apache/kafka:latest
-    container_name: broker
+    container_name: exchange_broker
     ports:
       - 9092:9092
     environment:
@@ -19,16 +19,13 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 3
   dynamodb-local:
-    image: amazon/dynamodb-local:latest
+    image: amazon/dynamodb-local
     container_name: dynamodb_local
-    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
     environment:
-      - AWS_ACCESS_KEY_ID: 'DUMMYIDEXAMPLE'
-      - AWS_SECRET_ACCESS_KEY: 'DUMMYEXAMPLEKEY'
+      AWS_ACCESS_KEY_ID: 'DUMMYIDEXAMPLE'
+      AWS_SECRET_ACCESS_KEY: 'DUMMYEXAMPLEKEY'
     ports:
      - "8000:8000"
-    volumes:
-      - "./docker/dynamodb:/home"
     restart: unless-stopped
   etl:
     container_name: liquidation_etl
@@ -38,8 +35,6 @@ services:
     environment:
       AWS_ACCESS_KEY_ID: 'DUMMYIDEXAMPLE'
       AWS_SECRET_ACCESS_KEY: 'DUMMYEXAMPLEKEY'
-    command:
-      dynamodb describe-limits --endpoint-url http://dynamodb-local:8000 --region us-west-2
     develop:
       watch:
         - path: .
