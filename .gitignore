@@ -1,3 +1,6 @@
 commands.db
-exchange_venv
+exchange_venv/
 .vscode
+aws/
+__pycache__/
+awscliv2.zip

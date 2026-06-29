@@ -18,28 +18,93 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 3
+  # dynamodb-local:
+  #   image: amazon/dynamodb-local:latest
+  #   command: "-jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
+  #   container_name: dynamodb_local
+  #   environment:
+  #     AWS_ACCESS_KEY_ID: 'DUMMYIDEXAMPLE'
+  #     AWS_SECRET_ACCESS_KEY: 'DUMMYEXAMPLEKEY'
+  #   volumes:
+  #    - "./docker/dynamodb:/home/dynamodblocal/data"
+  #   working_dir: /home/dynamodblocal
+  #   ports:
+  #    - "8000:8000"
+  #   restart: unless-stopped
+  
+  # aws-glue:
+  #   image: amazon/aws-glue-libs:5
+  #   container_name: glue5_spark_container
+  #   environment:
+  #     AWS_PROFILE: 'PROFILE_NAME'
+  #   volumes:
+  #     - ~/.aws:/home/hadoop/.aws
+  #     - ${WORKSPACE_LOCATION:-.}/workspace:/home/hadoop/workspace/
+
   dynamodb-local:
-    image: amazon/dynamodb-local
+    image: amazon/dynamodb-local:latest
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
     container_name: dynamodb_local
     environment:
       AWS_ACCESS_KEY_ID: 'DUMMYIDEXAMPLE'
       AWS_SECRET_ACCESS_KEY: 'DUMMYEXAMPLEKEY'
+    volumes:
+      - "./docker/dynamodb:/home/dynamodblocal/data"
+    working_dir: /home/dynamodblocal
     ports:
-     - "8000:8000"
+      - "8000:8000"
     restart: unless-stopped
+    networks:
+      - app-network               # 👈
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:8000/shell/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  run_etl:
+    container_name: dynamo_aws_etl
+    image: amazon/aws-cli
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: 'DUMMYIDEXAMPLE'
+      AWS_SECRET_ACCESS_KEY: 'DUMMYEXAMPLEKEY'
+    networks:
+      - app-network               # 👈
+    command:
+      - dynamodb
+      - describe-limits
+      - --endpoint-url
+      - http://dynamodb-local:8000
+      - --region
+      - us-east-1
+
   etl:
     container_name: liquidation_etl
     build: .
     depends_on:
-      - dynamodb-local
+      dynamodb-local:
+        condition: service_healthy
     environment:
       AWS_ACCESS_KEY_ID: 'DUMMYIDEXAMPLE'
       AWS_SECRET_ACCESS_KEY: 'DUMMYEXAMPLEKEY'
+      DYNAMODB_ENDPOINT: http://dynamodb-local:8000
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network               # 👈
     develop:
       watch:
         - path: .
           include: "*.py"
           action: rebuild
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
   dynamodb_local: # declare the volume
