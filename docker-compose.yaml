@@ -5,6 +5,8 @@ services:
     container_name: exchange_broker
     ports:
       - 9092:9092
+    networks:
+      - app-network
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -50,33 +52,25 @@ services:
       AWS_SECRET_ACCESS_KEY: 'DUMMYEXAMPLEKEY'
     volumes:
       - "./docker/dynamodb:/home/dynamodblocal/data"
-    working_dir: /home/dynamodblocal
     ports:
       - "8000:8000"
     restart: unless-stopped
     networks:
-      - app-network               # 👈
-    healthcheck:
-      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:8000/shell/ || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
+      - app-network              
 
   run_etl:
     container_name: dynamo_aws_etl
     image: amazon/aws-cli
     depends_on:
-      dynamodb-local:
-        condition: service_healthy
+      - dynamodb-local
     environment:
       AWS_ACCESS_KEY_ID: 'DUMMYIDEXAMPLE'
       AWS_SECRET_ACCESS_KEY: 'DUMMYEXAMPLEKEY'
     networks:
-      - app-network               # 👈
+      - app-network              
     command:
       - dynamodb
-      - describe-limits
+      - list-tables
       - --endpoint-url
       - http://dynamodb-local:8000
       - --region
