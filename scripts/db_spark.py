@@ -5,7 +5,6 @@ from decimal import Decimal
 import boto3
 import logging
 from botocore.exceptions import ClientError
-import uuid
 
 KAFKA_BOOTSTRAP_SERVERS = 'broker:9092'
 KAFKA_TOPIC = 'crypto_exchange_trades'
@@ -48,9 +47,7 @@ def verify_and_create_dynamodb_table():
                 logging.error(f"❌ Failed to create DynamoDB Table: {creation_err}")
                 sys.exit(1)
 
-# =====================================================================
-# PART 2: DISTRIBUTED PYSPARK SPARK CONSUMER
-# =====================================================================
+
 def send_partition_to_dynamo(partition):
     """
     Executes distributedly on Spark WORKER nodes.
@@ -91,8 +88,7 @@ def run_spark_consumer():
     logging.info("Starting PySpark Structured streaming pipeline...")
     spark = SparkSession.builder \
         .appName("CryptoMarketTradesConsumer") \
-        .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0") \
-        .getOrCreate()
+            .getOrCreate()
 
     spark.sparkContext.setLogLevel("WARN")
 
@@ -132,3 +128,5 @@ def run_spark_consumer():
         .start()
     
     query.awaitTermination()
+
+run_spark_consumer()
