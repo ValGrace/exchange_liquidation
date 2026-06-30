@@ -4,3 +4,4 @@ exchange_venv/
 aws/
 __pycache__/
 awscliv2.zip
+docker/
