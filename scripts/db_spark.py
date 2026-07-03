@@ -1,7 +1,6 @@
 import pyspark.sql.functions as F
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType
-from decimal import Decimal
 import boto3
 import logging
 from botocore.exceptions import ClientError
@@ -15,13 +14,7 @@ AWS_REGION = 'us-east-1'
 DYNAMODB_ENDPOINT = 'http://dynamodb-local:8000' # Change to None in production AWS environment
 
 
-spark = SparkSession.builder \
-        .appName("liquidation_etl") \
-    .config("spark.jars.packages", 
-            "org.apache.spark:spark-sql-kafka-0-10_2.13:3.5.0,org.apache.kafka:kafka-clients:3.4.1") \
-    .getOrCreate()
 
-spark.sparkContext.setLogLevel("ERROR")
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -56,49 +49,65 @@ def verify_and_create_dynamodb_table():
                 logging.info(f"✅ Table '{DYNAMODB_TABLE}' successfully created and ACTIVE.")
             except Exception as creation_err:
                 logging.error(f"❌ Failed to create DynamoDB Table: {creation_err}")
-                sys.exit(1)
+                
 
 
 def send_partition_to_dynamo(partition):
-    """
-    Executes distributedly on Spark WORKER nodes.
-    Each worker processes its own slice of data asynchronously.
-    """
-    # Boto3 client/resource must be instantiated INSIDE the worker execution block
     dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION, endpoint_url=DYNAMODB_ENDPOINT)
     table = dynamodb.Table(DYNAMODB_TABLE)
     
-    with table.batch_writer() as batch:
-        for row in partition:
-            item = {
-                "TradePartition": row["TradePartition"],
-                "TradeID": row["TradeID"],
-                "exchange": row["exchange"],
-                "symbol": row["symbol"],
-                "side": row["side"],
-                "price": str(row["price"]),
-                "quantity": str(row["quantity"]),
-                "notional_value": str(row["notional_value"]),
-                "timestamp": row["timestamp"]
-            }
-            batch.put_item(Item=item)
+    try:
+        with table.batch_writer() as batch:
+            for row in partition:
+                item = {
+                    "TradePartition": row["TradePartition"],
+                    "TradeID": row["TradeID"],
+                    "exchange": row["exchange"],
+                    "symbol": row["symbol"],
+                    "side": row["side"],
+                    "price": str(row["price"]),
+                    "quantity": str(row["quantity"]),
+                    "notional_value": str(row["notional_value"]),
+                    "timestamp": row["timestamp"]
+                }
+                batch.put_item(Item=item)
+    except Exception as e:
+        logging.error(f"❌ Failed to write partition to DynamoDB: {e}")
+        raise  
+
 
 def write_to_dynamodb(df_batch, batch_id):
-    """Handles micro-batches by initiating distributed partition processing."""
     if df_batch.isEmpty():
+        logging.info(f"Batch {batch_id} is empty, skipping.")
         return
-    logging.info(f"Processing micro-batch {batch_id} distributedly...")
-    # Using foreachPartition avoids pulling data back to the driver
-    df_batch.foreachPartition(send_partition_to_dynamo)
+    
+    count = df_batch.count()
+    logging.info(f"Processing batch {batch_id} with {count} rows...") 
+    
+    try:
+        df_batch.foreachPartition(send_partition_to_dynamo)
+        logging.info(f"✅ Batch {batch_id} written successfully.")
+    except Exception as e:
+        logging.error(f"❌ Batch {batch_id} failed: {e}")
+        raise
 
 def run_spark_consumer():
-    """Main execution block for Spark Structured Streaming."""
-    # 1. Initialize DB Table before running the stream
+    spark = SparkSession.builder \
+        .appName("liquidation_etl") \
+    .config("spark.jars.packages", 
+            "org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.2,org.apache.kafka:kafka-clients:3.9.1") \
+    .getOrCreate()
+
+    spark.sparkContext.setLogLevel("INFO")
     verify_and_create_dynamodb_table()
 
     logging.info("Starting PySpark Structured streaming pipeline...")
     
     logging.info(f"SCALA VERSION: {spark.sparkContext._gateway.jvm.scala.util.Properties.versionString()}")
+
+    endpoint_bc  = spark.sparkContext.broadcast(DYNAMODB_ENDPOINT)
+    region_bc    = spark.sparkContext.broadcast(AWS_REGION)
+    table_name_bc = spark.sparkContext.broadcast(DYNAMODB_TABLE)
 
     trade_schema = StructType([
         StructField('exchange', StringType(), True),
@@ -113,7 +122,8 @@ def run_spark_consumer():
         .format("kafka") \
         .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
         .option("subscribe", KAFKA_TOPIC) \
-        .option("startingOffsets", "latest") \
+        .option("startingOffsets", "earliest") \
+        .option("failOnDataLoss", "false") \
         .load()
     
     json_df = raw_kafka_df.selectExpr("CAST(value AS STRING) as json_payload") \

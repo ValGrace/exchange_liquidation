@@ -54,7 +54,13 @@ services:
       - "./docker/dynamodb:/home/dynamodblocal/data"
     ports:
       - "8000:8000"
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:8000 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: on-failure
     networks:
       - app-network              
 
@@ -62,7 +68,10 @@ services:
     container_name: dynamo_aws_etl
     image: amazon/aws-cli
     depends_on:
-      - dynamodb-local
+      dynamodb-local:
+        condition: service_healthy
+      etl:
+        condition: service_healthy
     environment:
       AWS_ACCESS_KEY_ID: 'DUMMYIDEXAMPLE'
       AWS_SECRET_ACCESS_KEY: 'DUMMYEXAMPLEKEY'
@@ -70,7 +79,9 @@ services:
       - app-network              
     command:
       - dynamodb
-      - list-tables
+      - scan
+      - --table-name
+      - MarketTrades
       - --endpoint-url
       - http://dynamodb-local:8000
       - --region
@@ -80,16 +91,21 @@ services:
     container_name: liquidation_etl
     build: .
     depends_on:
-      dynamodb-local:
-        condition: service_healthy
+      - dynamodb-local
     environment:
       AWS_ACCESS_KEY_ID: 'DUMMYIDEXAMPLE'
       AWS_SECRET_ACCESS_KEY: 'DUMMYEXAMPLEKEY'
       DYNAMODB_ENDPOINT: http://dynamodb-local:8000
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import boto3; r=boto3.resource('dynamodb',region_name='us-east-1',endpoint_url='http://dynamodb-local:8000',aws_access_key_id='DUMMYIDEXAMPLE',aws_secret_access_key='DUMMYEXAMPLEKEY').Table('MarketTrades').scan(Select='COUNT'); exit(0 if r['Count']>0 else 1)\""]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s 
     networks:
-      - app-network               # 👈
+      - app-network               
     develop:
       watch:
         - path: .

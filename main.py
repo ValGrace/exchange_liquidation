@@ -5,11 +5,14 @@ from exchanges.bybit import BYBIT_WS_URL, parse_bybit_message, bybit_subscribe_p
 from exchanges.okx import parse_okx_message, OKX_WS_URL, okx_subscribe_payload
 from exchanges.kraken import parse_kraken_message, KRAKEN_WS_URL, kraken_subscribe_payload
 from exchanges.coin_base import parse_coinbase_message, COINBASE_WS_URL, coinbase_subscribe_payload
+from scripts.db_query import get_all_market_trades
 from kafka import KafkaProducer
-# from scripts.db_spark import run_spark_consumer
+from scripts.db_spark import run_spark_consumer
 import logging
 
 KAFKA_TOPIC = 'crypto_exchange_trades'
+
+# run_spark_consumer()
 
 async def main():
     
@@ -21,7 +24,14 @@ async def main():
         enable_idempotence=True
     )
     
+    # for trade in trades:
+    #     logging.info(trade)
+    
     logging.info("✅ Kafka producer started successfully.")
+
+    run_spark_consumer()
+    trades = get_all_market_trades('http://dynamodb-local:8080')
+    logging.info(f"Total rows retrieved: {len(trades)}")
 
     binance_task = websocket_handler("Binance exchange", BINANCE_WS_URL, None, parse_binance_liquidations, k_producer, KAFKA_TOPIC)
     bybit_task = websocket_handler("ByBit exchange", BYBIT_WS_URL, bybit_subscribe_payload, parse_bybit_message, k_producer, KAFKA_TOPIC)
@@ -38,7 +48,7 @@ async def main():
             coinbase_task,
             return_exceptions=True
         )
-        print(results)
+        
     finally:
         # Guarantee cleanup on shut down
         logging.info("Flushing and shutting down Kafka producer...")
@@ -48,4 +58,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    
     

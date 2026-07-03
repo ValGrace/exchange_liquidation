@@ -25,11 +25,11 @@ async def websocket_handler(exchange_name, url, subscribe_payload, message_parse
 
                    if parsed_event:
                        for event in parsed_event:
-                            logging.info(
-                                f" [{exchange_name.upper()} TRADE]"
-                                f"{event['symbol']} | {event['side']} | "
-                                f"${event['price']:.2f} | QTY: {event['quantity']}"
-                            )
+                            # logging.info(
+                            #     f" [{exchange_name.upper()} TRADE]"
+                            #     f"{event['symbol']} | {event['side']} | "
+                            #     f"${event['price']:.2f} | QTY: {event['quantity']}"
+                            # )
                             payload_bytes = json.dumps(event).encode("utf-8")
 
                             key_bytes = event["symbol"].encode("utf-8")
