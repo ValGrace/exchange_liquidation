@@ -6,13 +6,24 @@ import boto3
 import logging
 from botocore.exceptions import ClientError
 
+
+
 KAFKA_BOOTSTRAP_SERVERS = 'broker:9092'
 KAFKA_TOPIC = 'crypto_exchange_trades'
 DYNAMODB_TABLE = 'MarketTrades'
 AWS_REGION = 'us-east-1'
 DYNAMODB_ENDPOINT = 'http://dynamodb-local:8000' # Change to None in production AWS environment
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+spark = SparkSession.builder \
+        .appName("liquidation_etl") \
+    .config("spark.jars.packages", 
+            "org.apache.spark:spark-sql-kafka-0-10_2.13:3.5.0,org.apache.kafka:kafka-clients:3.4.1") \
+    .getOrCreate()
+
+spark.sparkContext.setLogLevel("ERROR")
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # =====================================================================
 # PART 1: DYNAMODB INITIALIZATION (Runs ONCE on Driver)
@@ -65,9 +76,9 @@ def send_partition_to_dynamo(partition):
                 "exchange": row["exchange"],
                 "symbol": row["symbol"],
                 "side": row["side"],
-                "price": Decimal(str(row["price"])),
-                "quantity": Decimal(str(row["quantity"])),
-                "notional_value": Decimal(str(row["notional_value"])),
+                "price": str(row["price"]),
+                "quantity": str(row["quantity"]),
+                "notional_value": str(row["notional_value"]),
                 "timestamp": row["timestamp"]
             }
             batch.put_item(Item=item)
@@ -86,11 +97,8 @@ def run_spark_consumer():
     verify_and_create_dynamodb_table()
 
     logging.info("Starting PySpark Structured streaming pipeline...")
-    spark = SparkSession.builder \
-        .appName("CryptoMarketTradesConsumer") \
-            .getOrCreate()
-
-    spark.sparkContext.setLogLevel("WARN")
+    
+    logging.info(f"SCALA VERSION: {spark.sparkContext._gateway.jvm.scala.util.Properties.versionString()}")
 
     trade_schema = StructType([
         StructField('exchange', StringType(), True),
@@ -129,4 +137,3 @@ def run_spark_consumer():
     
     query.awaitTermination()
 
-run_spark_consumer()
