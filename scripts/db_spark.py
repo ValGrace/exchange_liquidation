@@ -94,6 +94,8 @@ def write_to_dynamodb(df_batch, batch_id):
 def run_spark_consumer():
     spark = SparkSession.builder \
         .appName("liquidation_etl") \
+        .config("spark.sql.shuffle.partitions", "10") \
+    .config("spark.default.parallelism", "10") \
     .config("spark.jars.packages", 
             "org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.2,org.apache.kafka:kafka-clients:3.9.1") \
     .getOrCreate()
@@ -105,9 +107,9 @@ def run_spark_consumer():
     
     logging.info(f"SCALA VERSION: {spark.sparkContext._gateway.jvm.scala.util.Properties.versionString()}")
 
-    endpoint_bc  = spark.sparkContext.broadcast(DYNAMODB_ENDPOINT)
-    region_bc    = spark.sparkContext.broadcast(AWS_REGION)
-    table_name_bc = spark.sparkContext.broadcast(DYNAMODB_TABLE)
+    # endpoint_bc  = spark.sparkContext.broadcast(DYNAMODB_ENDPOINT)
+    # region_bc    = spark.sparkContext.broadcast(AWS_REGION)
+    # table_name_bc = spark.sparkContext.broadcast(DYNAMODB_TABLE)
 
     trade_schema = StructType([
         StructField('exchange', StringType(), True),
@@ -124,6 +126,9 @@ def run_spark_consumer():
         .option("subscribe", KAFKA_TOPIC) \
         .option("startingOffsets", "earliest") \
         .option("failOnDataLoss", "false") \
+        .option("kafka.metadata.max.age.ms", "30000") \
+        .option("kafka.reconnect.backoff.ms", "1000") \
+        .option("kafka.reconnect.backoff.max.ms", "5000") \
         .load()
     
     json_df = raw_kafka_df.selectExpr("CAST(value AS STRING) as json_payload") \
@@ -142,7 +147,7 @@ def run_spark_consumer():
     query = final_df.writeStream \
         .outputMode("append") \
         .foreachBatch(write_to_dynamodb) \
-        .trigger(processingTime="2 seconds") \
+        .trigger(processingTime="15 seconds") \
         .start()
     
     query.awaitTermination()

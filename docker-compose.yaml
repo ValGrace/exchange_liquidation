@@ -58,9 +58,7 @@ services:
       - app-network              
     command:
       - dynamodb
-      - scan
-      - --table-name
-      - MarketTrades
+      - list-tables
       - --endpoint-url
       - http://dynamodb-local:8000
       - --region
