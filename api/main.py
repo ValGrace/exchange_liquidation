@@ -33,7 +33,7 @@ def read_root():
     return {"Bienvenue": "à le liquidation d'echange"}
 
 @app.get("/trades")
-def get_data(limit: Optional[int] = Query(default=100, le=1000)):
+def get_data(limit: Optional[int] = Query(default=1000, le=1000)):
     try:
         response = table.scan(Limit=limit)
         return {
@@ -46,11 +46,11 @@ def get_data(limit: Optional[int] = Query(default=100, le=1000)):
 @app.get("/trades/{symbol}")
 def get_trade_by_symbol(
     symbol: str, 
-    data: Optional[str] = Query(default=None, description="Format: YYYY-MM-DD"),
+    date: Optional[str] = Query(default=None, description="Format: YYYY-MM-DD"),
 ):
     try:
-        if data:
-            partition_key = f"{symbol}#{data}"
+        if date:
+            partition_key = f"{symbol}#{date}"
             items = paginate_query(
                 table.query,
                 KeyConditionExpression=Key("TradePartition").eq(partition_key)
@@ -114,13 +114,3 @@ def health():
     except Exception as e:
         raise HTTPException(status_code=503, detail=str(e))
 
-
-
-
-# if __name__ == "__main__":
-#     # Spark blocks, so run it in a background thread
-#     spark_thread = threading.Thread(target=run_spark_consumer, daemon=True)
-#     spark_thread.start()
-
-#     # FastAPI runs on the main thread
-#     uvicorn.run(app, host="0.0.0.0", port=8080)
