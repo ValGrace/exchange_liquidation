@@ -43,12 +43,12 @@ async def main():
     kraken_task = websocket_handler("KRAKEN exchange", KRAKEN_WS_URL, kraken_subscribe_payload, parse_kraken_message, k_producer, KAFKA_TOPIC)
     coinbase_task = websocket_handler("Coinbase exchange", COINBASE_WS_URL, coinbase_subscribe_payload, parse_coinbase_message, k_producer, KAFKA_TOPIC)
 
-    # config = uvicorn.Config("api.main:app", port=8080, reload=True, log_level="info")
-    # server = uvicorn.Server(config)
+    config = uvicorn.Config("api.main:app", host="0.0.0.0", port=8080, reload=True, log_level="info")
+    server = uvicorn.Server(config)
 
     try:
-        results = await asyncio.gather(
-            # server.serve(),
+        await asyncio.gather(
+            server.serve(),
             binance_task,
             bybit_task,
             okx_task,
@@ -62,7 +62,8 @@ async def main():
     finally:
         # Guarantee cleanup on shut down
         logging.info("Flushing and shutting down Kafka producer...")
-        # await k_producer.stop()
+        k_producer.flush()
+        k_producer.close()
         logging.info("✅ Pipelines cleanly offline.")
     run_spark_consumer()
 

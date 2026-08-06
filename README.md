@@ -6,7 +6,7 @@ docker compose up
 In a new shell tab start the kafka shell
 
 ```sh
-docker exec -it --workdir /opt/kafka/bin -it exchange_broker sh
+docker exec --workdir /opt/kafka/bin -it exchange_broker sh
 ```
 
 Read events sent to the consumer
