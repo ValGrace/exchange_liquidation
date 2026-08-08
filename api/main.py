@@ -1,22 +1,34 @@
 from fastapi import FastAPI, HTTPException, Query
 from scripts.db_query import get_all_market_trades
 from typing import Optional
+from scripts.ml_consumer import get_dynamo_resource
+from contextlib import asynccontextmanager
+from botocore.exceptions import ClientError
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 import os
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Runs on startup — ensures both tables exist before any request hits
+    from scripts.ml_consumer import check_predictions_table
+    from scripts.db_spark import verify_and_create_dynamodb_table
+    verify_and_create_dynamodb_table()    # MarketTrades
+    check_predictions_table()            # PricePredictions
+    yield
 app = FastAPI()
 
 
 dynamodb = boto3.resource(
     'dynamodb',
     region_name='us-east-1',
-    endpoint_url=os.getenv("DYNAMODB_ENDPOINT", "http://localhost:8000"),
+    endpoint_url=os.getenv("DYNAMODB_ENDPOINT", "http://dynamodb-local:8000"),
     aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID", "DUMMYIDEXAMPLE"),
     aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY", "DUMMYEXAMPLEKEY")
 )
 
 table = dynamodb.Table("MarketTrades")
+pred_table = dynamodb.Table("PricePredictions")
 
 # handle pagination
 def paginate_query(operation, **kwargs):
@@ -113,4 +125,65 @@ def health():
         return {"status": "healthy", "table": "MarketTrades"}
     except Exception as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+@app.get(
+    "/predictions",
+    tags=["ML Predictions"],
+    summary="List all symbols with active price predictions"
+)
+def list_prediction_symbols():
+    """Lists all symbols that have predictions."""
+    try:
+        dynamodb = get_dynamo_resource()
+        pred_table = dynamodb.Table("PricePredictions")
+        # table.load()
+        results = []
+        response = pred_table.scan()
+        results.extend(response.get("Items", []))
+        # items = response.get("items", [])
+
+        while "LastEvaluatedKey" in response:
+                response = pred_table.scan(ExclusiveStartKey=response["LastEvaluatedKey"])
+                results.extend(response.get("Items", []))
+        
+        return results
+    except ClientError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"DynamoDB scan failed: {e.response['Error']['Message']}"
+        )
+
+
+@app.get("/predictions/{symbol}", tags=["ML Predictions"],
+    summary="Find a prediction by symbol")
+def get_predictions(symbol: str):
+    try:
+        dynamodb = get_dynamo_resource()
+        table = dynamodb.Table("PricePredictions")
+
+        # Verify table exists before querying
+        table.load()
+
+        response = table.query(
+            KeyConditionExpression=Key("Symbol").eq(symbol),
+            ScanIndexForward=False,  # latest first
+            Limit=50
+        )
+        items = response.get("Items", [])
+
+        if not items:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No predictions found for '{symbol}'. "
+                       f"Ensure the ML pipeline is running and has enough data to train."
+            )
+
+        return {"symbol": symbol, "count": len(items), "predictions": items}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        
+        print(f"Predictions table not ready yet — ML pipeline may still be initializing.{e}")
+        # raise HTTPException(status_code=500, detail=str(e))
 
