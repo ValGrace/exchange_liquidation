@@ -6,7 +6,6 @@ import logging
 from botocore.exceptions import ClientError
 
 
-
 KAFKA_BOOTSTRAP_SERVERS = 'broker:9092'
 KAFKA_TOPIC = 'crypto_exchange_trades'
 DYNAMODB_TABLE = 'MarketTrades'
@@ -14,23 +13,19 @@ AWS_REGION = 'us-east-1'
 DYNAMODB_ENDPOINT = 'http://dynamodb-local:8000' # Change to None in production AWS environment
 
 
-
-
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# =====================================================================
-# PART 1: DYNAMODB INITIALIZATION (Runs ONCE on Driver)
-# =====================================================================
 def verify_and_create_dynamodb_table():
     """Ensures the DynamoDB table exists prior to starting the Spark Stream."""
     dynamodb = boto3.client('dynamodb', region_name=AWS_REGION, endpoint_url=DYNAMODB_ENDPOINT)
     try:
         logging.info(f"Checking if DynamoDB table '{DYNAMODB_TABLE}' exists...")
+        # table = dynamodb.Table()
         dynamodb.describe_table(TableName=DYNAMODB_TABLE)
-        logging.info(f"✅ DynamoDB Table '{DYNAMODB_TABLE}' is active.")
+        logging.info(f"DynamoDB Table '{DYNAMODB_TABLE}' is active.")
     except ClientError as e:
         if e.response['Error']['Code'] == 'ResourceNotFoundException':
-            logging.info(f"⚠️ Table '{DYNAMODB_TABLE}' not found. Creating table...")
+            logging.info(f"Table '{DYNAMODB_TABLE}' not found. Creating table...")
             try:
                 dynamodb.create_table(
                     TableName=DYNAMODB_TABLE,
@@ -46,9 +41,9 @@ def verify_and_create_dynamodb_table():
                 )
                 waiter = dynamodb.get_waiter('table_exists')
                 waiter.wait(TableName=DYNAMODB_TABLE, WaiterConfig={'Delay': 2, 'MaxAttempts': 10})
-                logging.info(f"✅ Table '{DYNAMODB_TABLE}' successfully created and ACTIVE.")
+                logging.info(f"Table '{DYNAMODB_TABLE}' successfully created and ACTIVE.")
             except Exception as creation_err:
-                logging.error(f"❌ Failed to create DynamoDB Table: {creation_err}")
+                logging.error(f" Failed to create DynamoDB Table: {creation_err}")
                 
 
 
@@ -68,11 +63,11 @@ def send_partition_to_dynamo(partition):
                     "price": str(row["price"]),
                     "quantity": str(row["quantity"]),
                     "notional_value": str(row["notional_value"]),
-                    "timestamp": row["timestamp"]
+                    "timestamp": str(row["timestamp"])
                 }
                 batch.put_item(Item=item)
     except Exception as e:
-        logging.error(f"❌ Failed to write partition to DynamoDB: {e}")
+        logging.error(f" Failed to write partition to DynamoDB: {e}")
         raise  
 
 
@@ -86,21 +81,15 @@ def write_to_dynamodb(df_batch, batch_id):
     
     try:
         df_batch.foreachPartition(send_partition_to_dynamo)
-        logging.info(f"✅ Batch {batch_id} written successfully.")
+        logging.info(f" Batch {batch_id} written successfully.")
     except Exception as e:
-        logging.error(f"❌ Batch {batch_id} failed: {e}")
+        logging.error(f"Batch {batch_id} failed: {e}")
         raise
 
-def run_spark_consumer():
-    spark = SparkSession.builder \
-        .appName("liquidation_etl") \
-        .config("spark.sql.shuffle.partitions", "10") \
-    .config("spark.default.parallelism", "10") \
-    .config("spark.jars.packages", 
-            "org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.2,org.apache.kafka:kafka-clients:3.9.1") \
-    .getOrCreate()
+def run_spark_consumer(spark: SparkSession):
 
     spark.sparkContext.setLogLevel("INFO")
+    
     verify_and_create_dynamodb_table()
 
     logging.info("Starting PySpark Structured streaming pipeline...")
@@ -136,19 +125,26 @@ def run_spark_consumer():
         .select("data.*")
 
     transformed_df = json_df \
-        .withColumn("notional_value", F.round(F.col("price") * F.col("quantity"), 2)) \
-        .withColumn("date_str", F.substring("timestamp", 1, 10)) \
-        .withColumn("TradePartition", F.concat_ws("#", F.col("symbol"), F.col("date_str"))) \
-        .withColumn("uuid", F.expr("uuid()")) \
-        .withColumn("TradeID", F.concat_ws("#", F.col("timestamp"), F.col("exchange"), F.col("uuid")))
+    .withColumn("notional_value", F.round(F.col("price") * F.col("quantity"), 2)) \
+    .withColumn("timestamp",
+        F.when(
+            F.col("timestamp").rlike('^[0-9]{13}$'),
+            F.from_unixtime(F.col("timestamp").cast('long') / 1000,
+                           "yyyy-MM-dd'T'HH:mm:ss.SSS")
+        ).otherwise(F.col("timestamp"))
+    ) \
+    .withColumn("date_str", F.substring("timestamp", 1, 10)) \
+    .withColumn("TradePartition", F.concat_ws("#", F.col("symbol"), F.col("date_str"))) \
+    .withColumn("uuid", F.expr("uuid()")) \
+    .withColumn("TradeID", F.concat_ws("#", F.col("timestamp"), F.col("exchange"), F.col("uuid")))
                                              
     final_df = transformed_df.drop("date_str", "uuid")
 
-    query = final_df.writeStream \
+    return final_df.writeStream \
         .outputMode("append") \
         .foreachBatch(write_to_dynamodb) \
         .trigger(processingTime="15 seconds") \
         .start()
     
-    query.awaitTermination()
+    
 

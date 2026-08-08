@@ -16,7 +16,7 @@ try:
     dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
     table = dynamodb.Table(DYNAMODB_TABLE)
 except (BotoCoreError, ClientError) as e:
-    print(f"❌ Failed to connect to DynamoDB: {e}")
+    print(f" Failed to connect to DynamoDB: {e}")
     sys.exit(1)
 
 # Initialize Kafka consumer
@@ -30,10 +30,10 @@ try:
         value_deserializer=lambda m: m.decode("utf-8")
     )
 except Exception as e:
-    print(f"❌ Failed to connect to Kafka: {e}")
+    print(f"Failed to connect to Kafka: {e}")
     sys.exit(1)
 
-print(f"✅ Listening to Kafka topic '{KAFKA_TOPIC}' and writing to DynamoDB table '{DYNAMODB_TABLE}'...")
+print(f"Listening to Kafka topic '{KAFKA_TOPIC}' and writing to DynamoDB table '{DYNAMODB_TABLE}'...")
 
 # ---------- CONSUME & WRITE ----------
 for message in consumer:
@@ -43,16 +43,16 @@ for message in consumer:
 
         # Ensure 'id' exists for DynamoDB primary key
         if "id" not in data:
-            print(f"⚠️ Skipping message without 'id': {data}")
+            print(f" Skipping message without 'id': {data}")
             continue
 
         # Write to DynamoDB
         table.put_item(Item=data)
-        print(f"✅ Inserted into DynamoDB: {data}")
+        print(f" Inserted into DynamoDB: {data}")
 
     except json.JSONDecodeError:
-        print(f"⚠️ Invalid JSON message: {message.value}")
+        print(f" Invalid JSON message: {message.value}")
     except (BotoCoreError, ClientError) as e:
-        print(f"❌ DynamoDB write error: {e}")
+        print(f"DynamoDB write error: {e}")
     except Exception as e:
-        print(f"⚠️ Unexpected error: {e}")
+        print(f" Unexpected error: {e}")
