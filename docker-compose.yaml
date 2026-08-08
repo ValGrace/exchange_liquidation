@@ -58,7 +58,9 @@ services:
       - app-network              
     command:
       - dynamodb
-      - list-tables
+      - scan
+      - --table-name
+      - PricePredictions
       - --endpoint-url
       - http://dynamodb-local:8000
       - --region
