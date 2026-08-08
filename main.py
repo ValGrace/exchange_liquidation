@@ -7,7 +7,7 @@ from exchanges.kraken import parse_kraken_message, KRAKEN_WS_URL, kraken_subscri
 from exchanges.coin_base import parse_coinbase_message, COINBASE_WS_URL, coinbase_subscribe_payload
 from scripts.db_query import get_all_market_trades
 from kafka import KafkaProducer
-from scripts.db_spark import run_spark_consumer
+from scripts.spark_runner import run_all
 import logging
 import threading
 # from api.main import app
@@ -31,11 +31,10 @@ async def main():
     # for trade in trades:
     #     logging.info(trade)
     
-    logging.info("✅ Kafka producer started successfully.")
+    logging.info("Kafka producer started successfully.")
 
-    # threading.Thread(run_spark_consumer())
-    # trades = get_all_market_trades('http://dynamodb-local:8080')
-    # logging.info(f"Total rows retrieved: {len(trades)}")
+    spark_thread = threading.Thread(target=run_all, daemon=True)
+    spark_thread.start()
 
     binance_task = websocket_handler("Binance exchange", BINANCE_WS_URL, None, parse_binance_liquidations, k_producer, KAFKA_TOPIC)
     bybit_task = websocket_handler("ByBit exchange", BYBIT_WS_URL, bybit_subscribe_payload, parse_bybit_message, k_producer, KAFKA_TOPIC)
@@ -43,7 +42,7 @@ async def main():
     kraken_task = websocket_handler("KRAKEN exchange", KRAKEN_WS_URL, kraken_subscribe_payload, parse_kraken_message, k_producer, KAFKA_TOPIC)
     coinbase_task = websocket_handler("Coinbase exchange", COINBASE_WS_URL, coinbase_subscribe_payload, parse_coinbase_message, k_producer, KAFKA_TOPIC)
 
-    config = uvicorn.Config("api.main:app", host="0.0.0.0", port=8080, reload=True, log_level="info")
+    config = uvicorn.Config("api.main:app", host="0.0.0.0", port=8080, reload=False, log_level="info")
     server = uvicorn.Server(config)
 
     try:
@@ -55,19 +54,14 @@ async def main():
             kraken_task,
             coinbase_task,
             return_exceptions=True
-        )
-        
-        
+        )        
         
     finally:
         # Guarantee cleanup on shut down
         logging.info("Flushing and shutting down Kafka producer...")
         k_producer.flush()
         k_producer.close()
-        logging.info("✅ Pipelines cleanly offline.")
-    run_spark_consumer()
-
+        logging.info("Pipelines cleanly offline.")
+    
 if __name__ == "__main__":
     asyncio.run(main())
-    
-    
