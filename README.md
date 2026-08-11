@@ -24,10 +24,20 @@ This is especiall useful for:
 - researchers testing market prediction or anomaly-detection model
 - teams that need a real-time data backbone for dashboards or alerts.
 
+### Application Architecture
+![Data Pipeline](./crypto_arch.png)
+
 To setup the application run
 ```sh
 docker compose up
 ```
+Access the dashboard at:
+`http://localhost:8080` and click connect
+
+The api is available at:
+`http://localhost:8080/docs`
+
+##### View Kafka event streams
 
 In a new shell tab start the kafka shell
 
