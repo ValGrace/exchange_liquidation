@@ -143,7 +143,7 @@ def run_spark_consumer(spark: SparkSession):
     return final_df.writeStream \
         .outputMode("append") \
         .foreachBatch(write_to_dynamodb) \
-        .trigger(processingTime="15 seconds") \
+        .trigger(processingTime="30 seconds") \
         .start()
     
     
