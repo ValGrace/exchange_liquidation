@@ -24,7 +24,7 @@ services:
 
   dynamodb-local:
     image: amazon/dynamodb-local:latest
-    command: "-Xms512m -Xmx2g -jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
+    command: "-Xms512m -Xmx2g -jar DynamoDBLocal.jar -sharedDb -inMemory"
     container_name: dynamodb_local
     init: true
     environment:
