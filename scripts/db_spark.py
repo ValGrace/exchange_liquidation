@@ -2,9 +2,10 @@ import pyspark.sql.functions as F
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType
 import boto3
+import time
 import logging
 from botocore.exceptions import ClientError
-
+import threading
 
 KAFKA_BOOTSTRAP_SERVERS = 'broker:9092'
 KAFKA_TOPIC = 'crypto_exchange_trades'
@@ -45,30 +46,39 @@ def verify_and_create_dynamodb_table():
             except Exception as creation_err:
                 logging.error(f" Failed to create DynamoDB Table: {creation_err}")
                 
-
+_dynamo_semaphore = threading.Semaphore(2)
 
 def send_partition_to_dynamo(partition):
-    dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION, endpoint_url=DYNAMODB_ENDPOINT)
-    table = dynamodb.Table(DYNAMODB_TABLE)
-    
-    try:
-        with table.batch_writer() as batch:
-            for row in partition:
-                item = {
-                    "TradePartition": row["TradePartition"],
-                    "TradeID": row["TradeID"],
-                    "exchange": row["exchange"],
-                    "symbol": row["symbol"],
-                    "side": row["side"],
-                    "price": str(row["price"]),
-                    "quantity": str(row["quantity"]),
-                    "notional_value": str(row["notional_value"]),
-                    "timestamp": str(row["timestamp"])
-                }
-                batch.put_item(Item=item)
-    except Exception as e:
-        logging.error(f" Failed to write partition to DynamoDB: {e}")
-        raise  
+    rows = list(partition)
+    if not rows:
+        return
+
+    with _dynamo_semaphore:
+        dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION, endpoint_url=DYNAMODB_ENDPOINT)
+        table = dynamodb.Table(DYNAMODB_TABLE)
+        # Write in chunks
+        chunks = [rows[i:i+10] for i in range(0, len(rows), 10)]   
+        try:
+            with table.batch_writer() as batch:
+                for chunk in chunks:
+
+                    for row in chunk:
+                        item = {
+                            "TradePartition": row["TradePartition"],
+                            "TradeID": row["TradeID"],
+                            "exchange": row["exchange"],
+                            "symbol": row["symbol"],
+                            "side": row["side"],
+                            "price": str(row["price"]),
+                            "quantity": str(row["quantity"]),
+                            "notional_value": str(row["notional_value"]),
+                            "timestamp": str(row["timestamp"])
+                        }
+                        batch.put_item(Item=item)
+                    time.sleep(0.05)
+        except Exception as e:
+            logging.error(f" Failed to write partition to DynamoDB: {e}")
+            raise  
 
 
 def write_to_dynamodb(df_batch, batch_id):
