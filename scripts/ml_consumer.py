@@ -445,6 +445,6 @@ def run_ml_pipeline(spark: SparkSession, endpoint_bc="http://dynamodb-local:8000
     return trade_stream.writeStream \
         .outputMode("append") \
         .foreachBatch(predict_batch) \
-        .trigger(processingTime="15 seconds") \
+        .trigger(processingTime="30 seconds") \
         .queryName("ml_predictions") \
         .start()
