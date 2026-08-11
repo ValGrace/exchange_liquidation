@@ -1,4 +1,8 @@
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from datetime import date
 from scripts.db_query import get_all_market_trades
 from typing import Optional
 from scripts.ml_consumer import get_dynamo_resource
@@ -7,6 +11,9 @@ from botocore.exceptions import ClientError
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,7 +23,27 @@ async def lifespan(app: FastAPI):
     verify_and_create_dynamodb_table()    # MarketTrades
     check_predictions_table()            # PricePredictions
     yield
-app = FastAPI()
+app = FastAPI(title="Exchange Liquidation API", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+@app.get("/", include_in_schema=False)
+async def serve_dashboard():
+    """Serve the trading dashboard."""
+    html_path = os.path.join(STATIC_DIR, "index.html")
+    if os.path.exists(html_path):
+        return FileResponse(html_path, media_type="text/html")
+    return {"message": "Place index.html in /app/static/ to serve the dashboard here."}
 
 
 dynamodb = boto3.resource(
@@ -40,9 +67,9 @@ def paginate_query(operation, **kwargs):
         results.extend(response.get("Items", []))
     return results
 
-@app.get("/")
-def read_root():
-    return {"Bienvenue": "à le liquidation d'echange"}
+# @app.get("/")
+# def read_root():
+#     return {"Bienvenue": "à le liquidation d'echange"}
 
 @app.get("/trades")
 def get_data(limit: Optional[int] = Query(default=1000, le=1000)):
@@ -54,6 +81,7 @@ def get_data(limit: Optional[int] = Query(default=1000, le=1000)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/trades/{symbol}")
 def get_trade_by_symbol(
