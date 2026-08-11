@@ -75,6 +75,8 @@ def check_predictions_table():
 
 # Part 2. Load historical dnata from dynamodb for training
 
+_scan_lock = threading.Lock()
+
 def load_historical_data(spark: SparkSession):
     """
     Pulls all rows from MarketTrades and returns a Spark DataFrame
@@ -83,14 +85,20 @@ def load_historical_data(spark: SparkSession):
     import time
     resource = get_dynamo_resource()
     table = resource.Table(TRADES_TABLE)
+    items = []
+    with _scan_lock:
+        try:
 
-    items, response = [], table.scan(Limit=600)
-    items.extend(response.get('Items', []))
-    while 'LastEvaluatedKey' in response:
-        time.sleep(0.1)
-        response = table.scan(Limit=600, ExclusiveStartKey=response['LastEvaluatedKey'])
-        items.extend(response.get('Items', []))
- 
+            response =  table.scan(Limit=600)
+            items.extend(response.get('Items', []))
+            while 'LastEvaluatedKey' in response:
+                time.sleep(0.1)
+                response = table.scan(Limit=600, ExclusiveStartKey=response['LastEvaluatedKey'])
+                items.extend(response.get('Items', []))
+        except Exception as e:
+            logging.error(f"Scan failed: {e}")
+            return None
+        
     if len(items) < MIN_ROWS_TO_TRAIN:
         logging.warning(f" Only {len(items)} rows - need {MIN_ROWS_TO_TRAIN} to train")
         return None
@@ -279,9 +287,22 @@ def write_predictions_to_dynamo(partition, endpoint="http://dynamodb-local:8000"
                     'Exchange':          row['exchange'],
                     'Timestamp':         row['timestamp']
                 })
+                if len(batch_items) >= 25:
+                    _flush_batch(table, batch_items)
+                    batch_items = []
+            
+        if batch_items:
+            _flush_batch(table, batch_items)
     except Exception as e:
-        logging.error(f"Prediction write failed: {e}")
-        raise
+        logging.error(f"Flushed: {e}")
+
+def _flush_batch(table, items):
+    try:
+        with table.batch_writer() as batch:
+            for item in items:
+                batch.put_item(Item=item)
+    except Exception as e:
+        logging.error(f"Batch flush failed: {e}")
 
 def write_predictions_batch(df_batch, batch_id, endpoint_bc="http://dynamodb-local:8000", region_bc="us-east-1"):
     count = df_batch.count()
@@ -289,7 +310,7 @@ def write_predictions_batch(df_batch, batch_id, endpoint_bc="http://dynamodb-loc
         logging.info("Bleeeeeeeh")
         return
     logging.info(f"💡 Writing {count} predictions (batch {batch_id})...")
-    df_batch.foreachPartition(
+    df_batch.coalesce(2).foreachPartition(
         lambda p: write_predictions_to_dynamo(p, endpoint_bc.value, region_bc.value)
     )
 
