@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CryptoPulse Terminal</title>
+  <style>
+    :root {
+      --bg:#0A0E14;--su:#0D1117;--pa:#161B22;--bo:#1C2333;
+      --ac:#00D4AA;--bu:#00D4AA;--se:#FF6B6B;--pr:#4FC3F7;
+      --mu:#6E7681;--tx:#E6EDF3;--di:#8B949E;
+      --mo:'JetBrains Mono','Courier New',monospace;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--tx);font-family:'Inter',-apple-system,sans-serif;font-size:12px;min-height:100vh;display:flex;flex-direction:column}
+    /* HEADER */
+    header{display:flex;justify-content:space-between;align-items:center;padding:9px 16px;background:var(--su);border-bottom:1px solid var(--bo);flex-shrink:0;gap:8px}
+    .logo{font-family:var(--mo);font-size:13px;font-weight:700;color:var(--ac);letter-spacing:.06em;white-space:nowrap}
+    .hc{display:flex;align-items:center;gap:8px;flex:1;justify-content:center;flex-wrap:wrap}
+    select{background:var(--pa);color:var(--tx);border:1px solid var(--bo);border-radius:3px;padding:3px 8px;font-size:12px;font-family:var(--mo);cursor:pointer;outline:none}
+    select:focus{border-color:var(--ac)}
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--mu);flex-shrink:0;transition:background .3s}
+    .dot.live{background:var(--ac);animation:pl 2s infinite}
+    .dot.error{background:var(--se)}
+    @keyframes pl{0%,100%{opacity:1}50%{opacity:.3}}
+    .lbl{font-family:var(--mo);font-size:10px;font-weight:600;color:var(--mu);letter-spacing:.1em}
+    .lbl.live{color:var(--ac)}.lbl.error{color:var(--se)}
+    .lu{color:var(--mu);font-size:10px;font-family:var(--mo);white-space:nowrap}
+    /* API BAR */
+    .abar{display:flex;align-items:center;gap:6px;padding:5px 16px;background:var(--pa);border-bottom:1px solid var(--bo);flex-shrink:0;flex-wrap:wrap}
+    .albl{color:var(--mu);font-size:10px;font-family:var(--mo)}
+    .ainp{background:var(--su);border:1px solid var(--bo);color:var(--tx);border-radius:3px;padding:3px 7px;font-family:var(--mo);font-size:10px;outline:none;width:220px}
+    .ainp:focus{border-color:var(--ac)}
+    .cbtn{background:var(--ac);color:#000;border:none;border-radius:3px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;font-family:var(--mo)}
+    .cbtn:hover{opacity:.85}
+    .rbtn{background:transparent;color:var(--mu);border:1px solid var(--bo);border-radius:3px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:var(--mo)}
+    .rbtn:hover{color:var(--tx);border-color:var(--mu)}
+    .emsg{color:var(--se);font-size:10px;font-family:var(--mo)}
+    .ping{color:var(--mu);font-size:10px;font-family:var(--mo)}
+    .ping.fast{color:var(--ac)}.ping.slow{color:var(--se)}
+    /* CORS hint */
+    .cors-hint{display:none;background:#1a0d0d;border:1px solid var(--se);border-radius:3px;padding:6px 10px;font-size:10px;color:#ff9999;font-family:var(--mo);line-height:1.6;flex-basis:100%}
+    /* TICKER */
+    .ticker{display:flex;align-items:center;padding:11px 16px;background:var(--su);border-bottom:1px solid var(--bo);flex-shrink:0;gap:4px;overflow-x:auto}
+    .bp{font-family:var(--mo);font-size:26px;font-weight:700;margin-right:6px;white-space:nowrap}
+    .pc{font-family:var(--mo);font-size:13px;font-weight:600;margin-right:14px;white-space:nowrap}
+    .up{color:var(--bu)}.dn{color:var(--se)}
+    .sp{display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--bo);white-space:nowrap}
+    .sl{font-size:8px;color:var(--mu);letter-spacing:.1em;margin-bottom:1px}
+    .sv{font-family:var(--mo);font-size:12px;font-weight:600}
+    .ss{font-size:9px;color:var(--pr)}
+    /* CHART */
+    .csec{padding:12px 16px;border-bottom:1px solid var(--bo);background:var(--bg);flex-shrink:0}
+    .sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap}
+    .stit{font-family:var(--mo);font-size:9px;font-weight:600;color:var(--mu);letter-spacing:.12em}
+    .chart-controls{display:flex;align-items:center;gap:6px}
+    input[type=date]{background:var(--pa);border:1px solid var(--bo);color:var(--tx);border-radius:3px;padding:2px 6px;font-size:10px;font-family:var(--mo);outline:none;cursor:pointer}
+    input[type=date]:focus{border-color:var(--ac)}
+    .cw{height:180px;position:relative}
+    /* FILTER BAR */
+    .fbar{display:flex;align-items:center;gap:4px;padding:6px 12px;border-bottom:1px solid var(--bo);background:var(--su);flex-wrap:wrap}
+    .ftag{background:transparent;color:var(--mu);border:1px solid var(--bo);border-radius:3px;padding:2px 8px;font-size:9px;cursor:pointer;font-family:var(--mo);letter-spacing:.04em;white-space:nowrap}
+    .ftag:hover{color:var(--tx);border-color:var(--mu)}
+    .ftag.active{background:var(--ac);color:#000;border-color:var(--ac);font-weight:700}
+    .ftag.buy-active{background:var(--bu);color:#000;border-color:var(--bu);font-weight:700}
+    .ftag.sell-active{background:var(--se);color:#000;border-color:var(--se);font-weight:700}
+    .fsep{width:1px;height:14px;background:var(--bo);margin:0 4px}
+    .fcount{color:var(--mu);font-size:9px;font-family:var(--mo);margin-left:auto}
+    /* EXPORT BTN */
+    .expbtn{background:transparent;color:var(--mu);border:1px solid var(--bo);border-radius:3px;padding:2px 7px;font-size:9px;cursor:pointer;font-family:var(--mo)}
+    .expbtn:hover{color:var(--ac);border-color:var(--ac)}
+    /* GRID */
+    .mg{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--bo);flex:1;min-height:0}
+    .pn{background:var(--bg);display:flex;flex-direction:column;min-height:260px}
+    .ph{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bo);background:var(--su);flex-shrink:0}
+    .pc2{color:var(--mu);font-size:9px;font-family:var(--mo)}
+    .tw{overflow-y:auto;flex:1}
+    table{width:100%;border-collapse:collapse}
+    thead th{position:sticky;top:0;z-index:1;background:var(--pa);padding:6px 9px;text-align:left;font-size:8px;font-weight:600;color:var(--mu);letter-spacing:.1em;border-bottom:1px solid var(--bo);white-space:nowrap}
+    tbody tr{border-bottom:1px solid rgba(28,35,51,.5);transition:background .1s}
+    tbody tr:hover{background:var(--pa)}
+    td{padding:4px 9px;color:var(--tx);white-space:nowrap}
+    .mono{font-family:var(--mo)}
+    .badge{display:inline-block;padding:1px 5px;border-radius:2px;background:var(--pa);border:1px solid var(--bo);color:var(--di);font-size:8px;font-family:var(--mo)}
+    /* FOOTER */
+    .ft{padding:7px 16px;background:var(--su);border-top:1px solid var(--bo);display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap}
+    .bsw{display:flex;align-items:center;gap:6px;flex:1;min-width:200px}
+    .bsl{font-family:var(--mo);font-size:9px;font-weight:600;white-space:nowrap}
+    .bt{flex:1;height:3px;background:var(--se);border-radius:2px;position:relative;overflow:hidden}
+    .bf{position:absolute;left:0;top:0;height:100%;background:var(--bu);border-radius:2px;transition:width .6s ease}
+    .rl{color:var(--mu);font-size:9px;font-family:var(--mo);white-space:nowrap}
+    /* KEYBOARD HINT */
+    .kh{color:var(--mu);font-size:9px;font-family:var(--mo);cursor:help;text-decoration:none;border-bottom:1px dotted var(--mu)}
+    /* EMPTY */
+    .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:32px 16px;color:var(--mu);text-align:center}
+    .ei{font-size:24px;opacity:.2}
+    /* FLASH */
+    @keyframes fr{0%{background:rgba(0,212,170,.12)}100%{background:transparent}}
+    .nr{animation:fr 1.2s ease}
+    /* SCROLLBAR */
+    ::-webkit-scrollbar{width:3px;height:3px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:var(--bo);border-radius:2px}
+    ::-webkit-scrollbar-thumb:hover{background:var(--mu)}
+    /* TOOLTIP */
+    [title]{cursor:help}
+    /* REFRESH INDICATOR */
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .spinning{display:inline-block;animation:spin .8s linear infinite}
+    /* RESPONSIVE */
+    @media(max-width:640px){
+      .mg{grid-template-columns:1fr}
+      .ticker{flex-wrap:wrap}
+      .sp{padding:4px 8px}
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="logo">◈ CRYPTOPULSE</span>
+  <div class="hc">
+    <select id="symbol" onchange="onSymbolChange(this.value)"></select>
+    <div class="dot" id="dot"></div>
+    <span class="lbl" id="lbl">CONNECTING</span>
+  </div>
+  <span class="lu" id="lu">—</span>
+</header>
+
+<div class="abar">
+  <span class="albl">API</span>
+  <input class="ainp" id="api-url" type="text" value="http://localhost:8080" placeholder="http://localhost:8080" />
+  <button class="cbtn" onclick="reconnect()">Connect</button>
+  <button class="rbtn" id="rbtn" onclick="manualRefresh()" title="Refresh now (R)">↺ Refresh</button>
+  <span class="ping" id="ping"></span>
+  <span class="emsg" id="emsg"></span>
+  <div class="cors-hint" id="cors-hint">
+    ⚠ CORS blocked — add this to your FastAPI app:<br>
+    <code>from fastapi.middleware.cors import CORSMiddleware</code><br>
+    <code>app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])</code>
+  </div>
+</div>
+
+<div class="ticker">
+  <span class="bp" id="bp">—</span>
+  <span class="pc" id="pch">—</span>
+  <div class="sp" title="Average price today"><span class="sl">AVG</span><span class="sv" id="s-avg">—</span></div>
+  <div class="sp" title="Highest price today"><span class="sl">HIGH</span><span class="sv up" id="s-high">—</span></div>
+  <div class="sp" title="Lowest price today"><span class="sl">LOW</span><span class="sv dn" id="s-low">—</span></div>
+  <div class="sp" title="Total trades today"><span class="sl">TRADES</span><span class="sv" id="s-trades">—</span></div>
+  <div class="sp" title="Total notional volume today"><span class="sl">NOTIONAL</span><span class="sv" id="s-notional">—</span></div>
+  <div class="sp" title="ML predicted price in 5 minutes"><span class="sl">PRED 5m</span><span class="sv" id="s-pred" style="color:var(--pr)">—</span><span class="ss" id="s-pdelta"></span></div>
+</div>
+
+<div class="csec">
+  <div class="sh">
+    <span class="stit">PRICE HISTORY</span>
+    <div class="chart-controls">
+      <span class="stit" id="chart-sub">—</span>
+      <input type="date" id="date-picker" title="View historical data for a specific date" />
+      <button class="expbtn" onclick="exportCSV('trades')" title="Export trades to CSV">⬇ Trades CSV</button>
+      <button class="expbtn" onclick="exportCSV('predictions')" title="Export predictions to CSV">⬇ Preds CSV</button>
+    </div>
+  </div>
+  <div class="cw"><canvas id="priceChart"></canvas></div>
+</div>
+
+<div class="mg">
+  <div class="pn">
+    <div class="ph">
+      <span class="stit">LIVE TRADES</span>
+      <span class="pc2" id="trade-count">—</span>
+    </div>
+    <div class="fbar" id="trade-filters">
+      <span class="albl" style="margin-right:2px">EXCHANGE</span>
+      <button class="ftag active" data-exch="ALL" onclick="setExchFilter('ALL')">ALL</button>
+      <div class="fsep"></div>
+      <span class="albl" style="margin-right:2px">SIDE</span>
+      <button class="ftag active" data-side="ALL" onclick="setSideFilter('ALL')">ALL</button>
+      <button class="ftag" data-side="BUY" onclick="setSideFilter('BUY')">BUY</button>
+      <button class="ftag" data-side="SELL" onclick="setSideFilter('SELL')">SELL</button>
+      <span class="fcount" id="filtered-count"></span>
+    </div>
+    <div class="tw">
+      <table>
+        <thead><tr><th>TIME</th><th>EXCHANGE</th><th>SIDE</th><th>PRICE</th><th>QTY</th><th>NOTIONAL</th></tr></thead>
+        <tbody id="trades-body"><tr><td colspan="6" style="text-align:center;padding:24px;color:var(--mu)">Connecting...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="pn">
+    <div class="ph">
+      <span class="stit">ML PREDICTIONS</span>
+      <span class="pc2" style="color:var(--pr)">5 min ahead · GBT model</span>
+    </div>
+    <div class="tw">
+      <table>
+        <thead><tr><th>PREDICTED AT</th><th>CURRENT</th><th>PREDICTED</th><th>DELTA</th><th>EXCHANGE</th></tr></thead>
+        <tbody id="pred-body"><tr><td colspan="5" style="text-align:center;padding:24px;color:var(--mu)">Connecting...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="ft">
+  <div class="bsw">
+    <span class="bsl up" id="buy-count">— BUYS</span>
+    <div class="bt"><div class="bf" id="bar-fill" style="width:50%"></div></div>
+    <span class="bsl dn" id="sell-count">— SELLS</span>
+  </div>
+  <span class="rl" id="next-refresh">↺ 15s</span>
+  <span class="kh" title="Keyboard shortcuts: R=refresh, B=buy filter, S=sell filter, A=all trades, ←→=prev/next symbol, D=today, E=export trades">⌨ shortcuts</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  let API = 'http://localhost:8080';
+  let symbol = '';
+  let chart = null;
+  let timer = null;
+  let countdown = 15;
+  let countdownTimer = null;
+  let allTrades = [];
+  let allPreds = [];
+  let exchFilter = 'ALL';
+  let sideFilter = 'ALL';
+  let isRefreshing = false;
+  let selectedDate = new Date().toISOString().split('T')[0];
+
+  // ── Formatting ──────────────────────────────────────────────
+  const fmt = {
+    price: v => Number(parseFloat(v)).toLocaleString('en-US', {minimumFractionDigits:2,maximumFractionDigits:2}),
+    pct: v => `${parseFloat(v)>=0?'+':''}${parseFloat(v).toFixed(3)}%`,
+    time: ts => { try { return new Date(ts).toLocaleTimeString('en-US',{hour12:false}); } catch { return '—'; } },
+    qty: v => parseFloat(v).toFixed(6),
+    notional: v => {
+      const n = parseFloat(v);
+      if (n >= 1e6) return `$${(n/1e6).toFixed(2)}M`;
+      if (n >= 1e3) return `$${(n/1e3).toFixed(1)}K`;
+      return `$${n.toFixed(2)}`;
+    },
+    compact: v => {
+      const n = parseFloat(v);
+      if (n >= 1e9) return `$${(n/1e9).toFixed(2)}B`;
+      if (n >= 1e6) return `$${(n/1e6).toFixed(2)}M`;
+      if (n >= 1e3) return `$${(n/1e3).toFixed(1)}K`;
+      return `$${n.toFixed(2)}`;
+    }
+  };
+
+  // ── Status ───────────────────────────────────────────────────
+  function setStatus(s) {
+    const dot = document.getElementById('dot');
+    const lbl = document.getElementById('lbl');
+    dot.className = 'dot ' + s;
+    lbl.className = 'lbl ' + s;
+    lbl.textContent = s === 'live' ? 'LIVE' : s === 'error' ? 'ERROR' : 'CONNECTING';
+  }
+
+  function setPing(ms) {
+    const el = document.getElementById('ping');
+    if (ms === null) { el.textContent = ''; return; }
+    el.textContent = `${ms}ms`;
+    el.className = 'ping ' + (ms < 100 ? 'fast' : ms < 500 ? '' : 'slow');
+  }
+
+  // ── Date picker ──────────────────────────────────────────────
+  const dp = document.getElementById('date-picker');
+  dp.value = selectedDate;
+  dp.max = selectedDate;
+  dp.addEventListener('change', () => {
+    selectedDate = dp.value;
+    fetchAll();
+  });
+
+  // ── Chart ────────────────────────────────────────────────────
+  function initChart() {
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Price',
+            data: [],
+            borderColor: '#00D4AA',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.2,
+            fill: false,
+            order: 1
+          },
+          {
+            label: 'Predicted',
+            data: [],
+            borderColor: '#4FC3F7',
+            borderWidth: 1,
+            borderDash: [4, 3],
+            pointRadius: 0,
+            tension: 0.2,
+            fill: false,
+            order: 0
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            align: 'end',
+            labels: {
+              color: '#6E7681',
+              font: { family: 'monospace', size: 9 },
+              boxWidth: 12,
+              padding: 8
+            }
+          },
+          tooltip: {
+            backgroundColor: '#0D1117',
+            borderColor: '#1C2333',
+            borderWidth: 1,
+            titleColor: '#8B949E',
+            bodyColor: '#E6EDF3',
+            titleFont: { family: 'monospace', size: 9 },
+            bodyFont: { family: 'monospace', size: 11 },
+            callbacks: {
+              label: ctx => `${ctx.dataset.label}: $${fmt.price(ctx.raw)}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#6E7681', font: { family: 'monospace', size: 8 }, maxTicksLimit: 10, maxRotation: 0 },
+            grid: { color: '#1C2333' },
+            border: { display: false }
+          },
+          y: {
+            ticks: { color: '#6E7681', font: { family: 'monospace', size: 8 }, callback: v => `$${(v/1000).toFixed(1)}k` },
+            grid: { color: '#1C2333' },
+            border: { display: false },
+            position: 'right'
+          }
+        }
+      }
+    });
+  }
+
+  function updateChart(trades, preds) {
+    if (!chart) return;
+    const sorted = [...trades].sort((a,b) => new Date(a.timestamp)-new Date(b.timestamp)).slice(-80);
+    chart.data.labels = sorted.map(t => fmt.time(t.timestamp));
+    chart.data.datasets[0].data = sorted.map(t => parseFloat(t.price));
+
+    // Map predictions onto chart timeline
+    if (preds && preds.length > 0) {
+      const tradeMap = new Map(sorted.map((t,i) => [fmt.time(t.timestamp), i]));
+      const predData = new Array(sorted.length).fill(null);
+      preds.forEach(p => {
+        const key = fmt.time(p.PredictedAt);
+        const idx = tradeMap.get(key);
+        if (idx !== undefined) predData[idx] = parseFloat(p.PredictedPrice);
+      });
+      chart.data.datasets[1].data = predData;
+    } else {
+      chart.data.datasets[1].data = [];
+    }
+
+    chart.update('none');
+    const isToday = selectedDate === new Date().toISOString().split('T')[0];
+    document.getElementById('chart-sub').textContent =
+      `${sorted.length} trades${isToday ? '' : ' · ' + selectedDate}`;
+  }
+
+  // ── Exchange filter buttons ──────────────────────────────────
+  function buildExchFilters(trades) {
+    const exchanges = [...new Set(trades.map(t => t.exchange).filter(Boolean))].sort();
+    const bar = document.getElementById('trade-filters');
+    // Remove old exchange buttons (keep side group)
+    bar.querySelectorAll('[data-exch]').forEach(b => b.remove());
+    const sep = bar.querySelector('.fsep');
+
+    const allBtn = document.createElement('button');
+    allBtn.className = 'ftag' + (exchFilter === 'ALL' ? ' active' : '');
+    allBtn.dataset.exch = 'ALL';
+    allBtn.textContent = 'ALL';
+    allBtn.onclick = () => setExchFilter('ALL');
+    bar.insertBefore(allBtn, sep);
+
+    exchanges.forEach(ex => {
+      const btn = document.createElement('button');
+      btn.className = 'ftag' + (exchFilter === ex ? ' active' : '');
+      btn.dataset.exch = ex;
+      btn.textContent = ex;
+      btn.onclick = () => setExchFilter(ex);
+      bar.insertBefore(btn, sep);
+    });
+  }
+
+  function setExchFilter(ex) {
+    exchFilter = ex;
+    document.querySelectorAll('[data-exch]').forEach(b => {
+      b.className = 'ftag' + (b.dataset.exch === ex ? ' active' : '');
+    });
+    applyFilters();
+  }
+
+  function setSideFilter(side) {
+    sideFilter = side;
+    document.querySelectorAll('[data-side]').forEach(b => {
+      const isSell = b.dataset.side === 'SELL';
+      const isBuy = b.dataset.side === 'BUY';
+      const active = b.dataset.side === side;
+      b.className = 'ftag' + (active ? (isBuy ? ' buy-active' : isSell ? ' sell-active' : ' active') : '');
+    });
+    applyFilters();
+  }
+
+  function applyFilters() {
+    let filtered = allTrades;
+    if (exchFilter !== 'ALL') filtered = filtered.filter(t => t.exchange === exchFilter);
+    if (sideFilter !== 'ALL') filtered = filtered.filter(t => (t.side||'').toUpperCase() === sideFilter);
+    renderFilteredTrades(filtered);
+    document.getElementById('filtered-count').textContent =
+      filtered.length < allTrades.length ? `${filtered.length} shown` : '';
+  }
+
+  // ── Render trades ────────────────────────────────────────────
+  function renderFilteredTrades(trades) {
+    const rows = trades.slice(0, 80);
+    document.getElementById('trade-count').textContent = `${allTrades.length.toLocaleString()} records`;
+    if (rows.length === 0) {
+      document.getElementById('trades-body').innerHTML =
+        `<tr><td colspan="6"><div class="empty"><div class="ei">◉</div><div>No trades match filters</div></div></td></tr>`;
+      return;
+    }
+    document.getElementById('trades-body').innerHTML = rows.map((t,i) => {
+      const isBuy = (t.side||'').toUpperCase() === 'BUY';
+      const sc = isBuy ? 'var(--bu)' : 'var(--se)';
+      const op = Math.max(.35, 1-i*.01).toFixed(2);
+      return `<tr style="opacity:${op}" ${i===0?'class="nr"':''}>
+        <td class="mono" style="color:var(--mu)">${fmt.time(t.timestamp)}</td>
+        <td><span class="badge">${t.exchange||'—'}</span></td>
+        <td style="color:${sc};font-weight:600">${(t.side||'').toUpperCase()}</td>
+        <td class="mono">$${fmt.price(t.price)}</td>
+        <td class="mono" style="color:var(--mu)">${fmt.qty(t.quantity)}</td>
+        <td class="mono" style="color:var(--di)">${fmt.notional(t.notional_value||0)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── Render predictions ───────────────────────────────────────
+  function renderPredictions(preds) {
+    if (!preds || preds.length === 0) {
+      document.getElementById('pred-body').innerHTML =
+        `<tr><td colspan="5"><div class="empty">
+          <div class="ei">◎</div>
+          <div>No predictions yet</div>
+          <div style="font-size:10px;margin-top:4px;color:var(--mu)">Model needs 500+ trades to train</div>
+        </div></td></tr>`;
+      document.getElementById('s-pred').textContent = '—';
+      document.getElementById('s-pdelta').textContent = '';
+      return;
+    }
+    const latest = preds[0];
+    const lc = parseFloat(latest.CurrentPrice);
+    const lp = parseFloat(latest.PredictedPrice);
+    const ld = ((lp-lc)/lc)*100;
+    const pel = document.getElementById('s-pred');
+    pel.textContent = `$${fmt.price(lp)}`;
+    pel.style.color = ld >= 0 ? 'var(--bu)' : 'var(--se)';
+    document.getElementById('s-pdelta').textContent = fmt.pct(ld);
+
+    document.getElementById('pred-body').innerHTML = preds.slice(0,80).map((p,i) => {
+      const c = parseFloat(p.CurrentPrice);
+      const pr = parseFloat(p.PredictedPrice);
+      const d = ((pr-c)/c)*100;
+      const ip = d >= 0;
+      const op = Math.max(.35, 1-i*.01).toFixed(2);
+      return `<tr style="opacity:${op}">
+        <td class="mono" style="color:var(--mu)">${fmt.time(p.PredictedAt)}</td>
+        <td class="mono">$${fmt.price(c)}</td>
+        <td class="mono" style="color:var(--pr)">$${fmt.price(pr)}</td>
+        <td style="color:${ip?'var(--bu)':'var(--se)'};font-weight:600">${fmt.pct(d)}</td>
+        <td><span class="badge">${p.Exchange||'—'}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── Ticker ───────────────────────────────────────────────────
+  function updateTicker(trades, summary) {
+    if (!trades || trades.length === 0) return;
+    const latest = parseFloat(trades[0].price);
+    const prev = trades[1] ? parseFloat(trades[1].price) : latest;
+    const change = ((latest-prev)/prev)*100;
+    const isUp = change >= 0;
+    document.getElementById('bp').textContent = `$${fmt.price(latest)}`;
+    document.getElementById('bp').className = 'bp ' + (isUp?'up':'dn');
+    document.getElementById('pch').textContent = fmt.pct(change);
+    document.getElementById('pch').className = 'pc ' + (isUp?'up':'dn');
+    if (summary) {
+      document.getElementById('s-avg').textContent = `$${fmt.price(summary.avg_price||0)}`;
+      document.getElementById('s-high').textContent = `$${fmt.price(summary.high_price||0)}`;
+      document.getElementById('s-low').textContent = `$${fmt.price(summary.low_price||0)}`;
+      document.getElementById('s-trades').textContent = (summary.trade_count||0).toLocaleString();
+      document.getElementById('s-notional').textContent = fmt.compact(summary.total_notional||0);
+      const bp = summary.trade_count > 0 ? (summary.buy_count/summary.trade_count)*100 : 50;
+      document.getElementById('bar-fill').style.width = bp + '%';
+      document.getElementById('buy-count').textContent = `▲ ${(summary.buy_count||0).toLocaleString()} BUYS`;
+      document.getElementById('sell-count').textContent = `${(summary.sell_count||0).toLocaleString()} SELLS ▼`;
+    }
+    document.getElementById('lu').textContent = `Updated ${fmt.time(new Date())}`;
+  }
+
+  // ── Fetch ────────────────────────────────────────────────────
+  async function fetchAll() {
+    if (isRefreshing) return;
+    isRefreshing = true;
+    const rbtn = document.getElementById('rbtn');
+    rbtn.innerHTML = '<span class="spinning">↻</span> Refresh';
+
+    const errEl = document.getElementById('emsg');
+    const corsHint = document.getElementById('cors-hint');
+    const t0 = Date.now();
+
+    try {
+      const sym = symbol || 'BTC-USD';
+      const [trR, prR, suR, syR] = await Promise.allSettled([
+        fetch(`${API}/trades/${sym}?limit=200${selectedDate?'&date='+selectedDate:''}`),
+        fetch(`${API}/predictions/${sym}`),
+        fetch(`${API}/trades/${sym}/summary?date=${selectedDate}`),
+        fetch(`${API}/predictions`)
+      ]);
+
+      setPing(Date.now() - t0);
+
+      // Update symbol list
+      if (syR.status==='fulfilled' && syR.value.ok) {
+        const d = await syR.value.json();
+        const syms = d.available_symbols || [];
+        const sel = document.getElementById('symbol');
+        if (syms.length > 0) {
+          const cur = sel.value;
+          const existing = [...sel.options].map(o => o.value);
+          syms.forEach(s => {
+            if (!existing.includes(s)) {
+              const o = document.createElement('option');
+              o.value = o.textContent = s;
+              sel.appendChild(o);
+            }
+          });
+          if (!symbol) {
+            symbol = syms[0];
+            sel.value = symbol;
+          }
+        }
+      }
+
+      let trades=[], preds=[], summary=null;
+
+      if (trR.status==='fulfilled' && trR.value.ok) {
+        const d = await trR.value.json();
+        trades = (d.items||[]).sort((a,b) => new Date(b.timestamp)-new Date(a.timestamp));
+      }
+      if (prR.status==='fulfilled' && prR.value.ok) {
+        const d = await prR.value.json();
+        preds = (d.predictions||[]).sort((a,b) => new Date(b.PredictedAt)-new Date(a.PredictedAt));
+      }
+      if (suR.status==='fulfilled' && suR.value.ok) {
+        summary = await suR.value.json();
+      }
+
+      allTrades = trades;
+      allPreds = preds;
+
+      buildExchFilters(trades);
+      applyFilters();
+      renderPredictions(preds);
+      updateTicker(trades, summary);
+      updateChart(trades, preds);
+      setStatus('live');
+      errEl.textContent = '';
+      corsHint.style.display = 'none';
+
+    } catch (e) {
+      setStatus('error');
+      const isCors = e.message && e.message.toLowerCase().includes('fetch');
+      errEl.textContent = isCors ? 'Connection failed' : `Error: ${e.message}`;
+      corsHint.style.display = isCors ? 'block' : 'none';
+      setPing(null);
+    } finally {
+      isRefreshing = false;
+      rbtn.textContent = '↺ Refresh';
+      resetCountdown();
+    }
+  }
+
+  // ── Countdown ────────────────────────────────────────────────
+  function resetCountdown() {
+    countdown = 15;
+    clearInterval(countdownTimer);
+    countdownTimer = setInterval(() => {
+      countdown--;
+      document.getElementById('next-refresh').textContent = `↺ ${countdown}s`;
+      if (countdown <= 0) {
+        clearInterval(countdownTimer);
+        fetchAll();
+      }
+    }, 1000);
+  }
+
+  function manualRefresh() {
+    clearInterval(countdownTimer);
+    fetchAll();
+  }
+
+  // ── Symbol change ────────────────────────────────────────────
+  function onSymbolChange(val) {
+    symbol = val;
+    exchFilter = 'ALL';
+    sideFilter = 'ALL';
+    fetchAll();
+  }
+
+  // ── Reconnect ────────────────────────────────────────────────
+  function reconnect() {
+    API = document.getElementById('api-url').value.trim().replace(/\/$/, '');
+    clearInterval(timer);
+    clearInterval(countdownTimer);
+    setStatus('connecting');
+    setPing(null);
+    fetchAll();
+    timer = setInterval(fetchAll, 15000);
+  }
+
+  // ── CSV Export ───────────────────────────────────────────────
+  function exportCSV(type) {
+    let rows, headers, filename;
+    if (type === 'trades') {
+      headers = ['timestamp','exchange','symbol','side','price','quantity','notional_value'];
+      rows = allTrades.map(t => headers.map(h => `"${t[h]||''}"`).join(','));
+      filename = `trades-${symbol}-${selectedDate}.csv`;
+    } else {
+      headers = ['PredictedAt','Exchange','CurrentPrice','PredictedPrice','PredictedInMinutes'];
+      rows = allPreds.map(p => headers.map(h => `"${p[h]||''}"`).join(','));
+      filename = `predictions-${symbol}-${selectedDate}.csv`;
+    }
+    const csv = [headers.join(','), ...rows].join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+    a.download = filename;
+    a.click();
+  }
+
+  // ── Keyboard shortcuts ───────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    switch(e.key.toUpperCase()) {
+      case 'R': manualRefresh(); break;
+      case 'B': setSideFilter('BUY'); break;
+      case 'S': setSideFilter('SELL'); break;
+      case 'A': setSideFilter('ALL'); setExchFilter('ALL'); break;
+      case 'D':
+        selectedDate = new Date().toISOString().split('T')[0];
+        document.getElementById('date-picker').value = selectedDate;
+        fetchAll();
+        break;
+      case 'E': exportCSV('trades'); break;
+      case 'ARROWLEFT': case 'ARROWRIGHT': {
+        const sel = document.getElementById('symbol');
+        const opts = [...sel.options];
+        const ci = opts.findIndex(o => o.value === sel.value);
+        const ni = e.key === 'ArrowLeft' ? Math.max(0,ci-1) : Math.min(opts.length-1,ci+1);
+        if (ni !== ci) { sel.value = opts[ni].value; onSymbolChange(opts[ni].value); }
+        break;
+      }
+    }
+  });
+
+  // ── Health check ping ────────────────────────────────────────
+  async function healthCheck() {
+    try {
+      const t0 = Date.now();
+      const r = await fetch(`${API}/health`);
+      if (r.ok) setPing(Date.now()-t0);
+    } catch {}
+  }
+
+  // ── Init ─────────────────────────────────────────────────────
+  window.addEventListener('load', () => {
+    initChart();
+    // Populate symbol dropdown with a default before first fetch
+    const sel = document.getElementById('symbol');
+    ['BTC-USD','ETH-USD','BTC-USDT','ETH-USDT'].forEach(s => {
+      const o = document.createElement('option');
+      o.value = o.textContent = s;
+      sel.appendChild(o);
+    });
+    symbol = 'BTC-USD';
+    reconnect();
+    setInterval(healthCheck, 30000);
+  });
+</script>
+</body>
+</html>
