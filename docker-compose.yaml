@@ -24,13 +24,15 @@ services:
 
   dynamodb-local:
     image: amazon/dynamodb-local:latest
-    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
+    command: "-Xms512m -Xmx2g -jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
     container_name: dynamodb_local
+    init: true
     environment:
       AWS_ACCESS_KEY_ID: 'DUMMYIDEXAMPLE'
       AWS_SECRET_ACCESS_KEY: 'DUMMYEXAMPLEKEY'
     volumes:
       - "./docker/dynamodb:/home/dynamodblocal/data"
+    working_dir: /home/dynamodblocal
     ports:
       - "8000:8000"
     healthcheck:
@@ -39,7 +41,11 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-    restart: on-failure
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2g
     networks:
       - app-network              
 
